@@ -1,0 +1,58 @@
+{
+  "name": "ingredient-parser-ts",
+  "version": "1.0.0",
+  "description": "TypeScript port of ingredient-parser: parse structured data from recipe ingredient sentences",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "ingredient",
+    "parser",
+    "recipe",
+    "nlp",
+    "crf",
+    "cooking",
+    "food",
+    "typescript"
+  ],
+  "homepage": "https://github.com/rmncv/ingredient-parser-ts#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rmncv/ingredient-parser-ts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rmncv/ingredient-parser-ts/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "ingredient-parser": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "NOTICE",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

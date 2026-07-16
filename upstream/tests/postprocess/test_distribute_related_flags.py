@@ -1,0 +1,127 @@
+import pytest
+
+from ingredient_parser.dataclasses import LabelledToken
+from ingredient_parser.en import PostProcessor
+from ingredient_parser.en.postprocess import _PartialIngredientAmount
+
+
+@pytest.fixture
+def p():
+    """Define a PostProcessor object to use for testing the PostProcessor
+    class methods.
+    """
+    sentence = "2 14 ounce cans coconut milk"
+    tokens = ["2", "14", "ounce", "can", "coconut", "milk"]
+    pos_tags = ["CD", "CD", "NN", "MD", "VB", "NN"]
+    labels = ["QTY", "QTY", "UNIT", "UNIT", "B_NAME_TOK", "I_NAME_TOK"]
+    scores = [
+        0.9991370577083561,
+        0.9725378063405858,
+        0.9978510889596651,
+        0.9922350007952175,
+        0.9886087821704076,
+        0.9969237827902526,
+    ]
+    labelled_tokens = [
+        LabelledToken(
+            index=i, text=text, pos_tag=tag, label=label, score=score, plural=False
+        )
+        for i, (text, tag, label, score) in enumerate(
+            zip(tokens, pos_tags, labels, scores)
+        )
+    ]
+    return PostProcessor(sentence, labelled_tokens, custom_units={})
+
+
+class TestPostProcessor_distribute_related_flags:
+    def test_distribute_approximate(self, p):
+        """
+        Test that all amounts get the APPROXIMATE flag set to True
+        """
+        amounts = [
+            _PartialIngredientAmount("", [""], [0], 0, APPROXIMATE=True),
+            _PartialIngredientAmount("", [""], [0], 0, related_to_previous=True),
+            _PartialIngredientAmount("", [""], [0], 0, related_to_previous=True),
+        ]
+        outputs = p._distribute_related_flags(amounts)
+        approximate_flags = [am.APPROXIMATE for am in outputs]
+        singular_flags = [am.SINGULAR for am in outputs]
+
+        assert all(approximate_flags)
+        assert not all(singular_flags)
+
+    def test_distribute_singular(self, p):
+        """
+        Test that all amounts get the SINGULAR flag set to True
+        """
+        amounts = [
+            _PartialIngredientAmount("", [""], [0], 0),
+            _PartialIngredientAmount("", [""], [0], 0, related_to_previous=True),
+            _PartialIngredientAmount(
+                "", [""], [0], 0, related_to_previous=True, SINGULAR=True
+            ),
+        ]
+        outputs = p._distribute_related_flags(amounts)
+        approximate_flags = [am.APPROXIMATE for am in outputs]
+        singular_flags = [am.SINGULAR for am in outputs]
+
+        assert not all(approximate_flags)
+        assert all(singular_flags)
+
+    def test_no_distribute(self, p):
+        """
+        Test that all amounts get the SINGULAR flag set to True
+        """
+        amounts = [
+            _PartialIngredientAmount("", [""], [0], 0, APPROXIMATE=True),
+            _PartialIngredientAmount("", [""], [0], 0),
+            _PartialIngredientAmount("", [""], [0], 0, SINGULAR=True),
+        ]
+        outputs = p._distribute_related_flags(amounts)
+
+        assert [a.APPROXIMATE for a in outputs] == [True, False, False]
+        assert [a.SINGULAR for a in outputs] == [False, False, True]
+
+    def test_mixed_distribute(self, p):
+        """
+        Test that all amounts get the SINGULAR flag set to True
+        """
+        amounts = [
+            _PartialIngredientAmount("", [""], [0], 0),
+            _PartialIngredientAmount("", [""], [0], 0, APPROXIMATE=True),
+            _PartialIngredientAmount(
+                "", [""], [0], 0, related_to_previous=True, SINGULAR=True
+            ),
+        ]
+        outputs = p._distribute_related_flags(amounts)
+
+        assert [a.APPROXIMATE for a in outputs] == [False, True, True]
+        assert [a.SINGULAR for a in outputs] == [False, True, True]
+
+    def test_singular_after_multiplier(self, p):
+        """
+        Test that all related amounts after the amount with a multiplier quantity
+        (i.e. ends with "x") have SINGULAR set True.
+        """
+        amounts = [
+            _PartialIngredientAmount("2x", [""], [0], 0),
+            _PartialIngredientAmount("", [""], [0], 0, related_to_previous=True),
+            _PartialIngredientAmount("", [""], [0], 0, related_to_previous=True),
+        ]
+        outputs = p._distribute_related_flags(amounts)
+
+        assert [a.SINGULAR for a in outputs] == [False, True, True]
+
+    def test_singular_after_multiplier_only_related(self, p):
+        """
+        Test that all related amounts after the amount with a multiplier quantity
+        (i.e. ends with "x") have SINGULAR set True.
+        """
+        amounts = [
+            _PartialIngredientAmount("2x", [""], [0], 0),
+            _PartialIngredientAmount("", [""], [0], 0, related_to_previous=True),
+            _PartialIngredientAmount("", [""], [0], 0, related_to_previous=False),
+        ]
+        outputs = p._distribute_related_flags(amounts)
+
+        assert [a.SINGULAR for a in outputs] == [False, True, False]
